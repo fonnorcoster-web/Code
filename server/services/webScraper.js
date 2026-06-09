@@ -32,6 +32,28 @@ const COFFEE_KEYWORDS = [
 // Keywords that suggest a page is the shop/products page
 const SHOP_KEYWORDS = ['shop', 'coffee', 'buy', 'store', 'menu', 'products', 'beans', 'order'];
 
+// Keywords that indicate the business actually roasts its own coffee
+const ROASTER_INDICATOR_KEYWORDS = [
+  'roastery',
+  'we roast',
+  'roasted in-house',
+  'roasted in house',
+  'roasted on-site',
+  'roasted on site',
+  'green coffee',
+  'green beans',
+  'roasting facility',
+  'roast our own',
+  'roastmaster',
+  'head roaster',
+  'small batch roast',
+  'batch roast',
+  'craft roast',
+  'freshly roasted',
+  'roasted fresh',
+  'coffee roaster',
+];
+
 // Brewing method keywords
 const BREWING_METHODS = {
   espresso: ['espresso', 'shot', 'latte', 'cappuccino', 'americano'],
@@ -253,6 +275,39 @@ function extractProducts($, baseUrl) {
 }
 
 /**
+ * Returns true if the page text contains signals that the business actually roasts coffee
+ */
+function checkIsActualRoaster(text) {
+  const lower = text.toLowerCase();
+  return ROASTER_INDICATOR_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/**
+ * Returns true if the page title plausibly belongs to the named roaster.
+ * Normalizes both strings, strips generic words, and requires ≥50% word overlap.
+ */
+function checkSiteMatchesRoaster(pageTitle, roasterName) {
+  if (!roasterName || !pageTitle) return true;
+
+  const normalize = (str) =>
+    str
+      .toLowerCase()
+      .replace(/\b(coffee|roasters?|roasting|co|company|llc|inc|cafe|the|and|&)\b/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const normalizedTitle = normalize(pageTitle);
+  const normalizedName = normalize(roasterName);
+  const nameWords = normalizedName.split(' ').filter((w) => w.length > 2);
+
+  if (nameWords.length === 0) return true;
+
+  const matchCount = nameWords.filter((word) => normalizedTitle.includes(word)).length;
+  return matchCount / nameWords.length >= 0.5;
+}
+
+/**
  * Check ownership indicators in page text
  */
 function checkOwnershipIndicators(text) {
@@ -280,14 +335,17 @@ function checkOwnershipIndicators(text) {
 /**
  * Scrape a coffee roaster's website for product information
  * @param {string} website - The roaster's website URL
+ * @param {string} roasterName - The business name from Google Places (used for site verification)
  * @returns {Object} Products and metadata
  */
-export async function scrapeRoasterProducts(website) {
+export async function scrapeRoasterProducts(website, roasterName = '') {
   const emptyResult = {
     products: [],
     isWomenOwned: false,
     isBlackOwned: false,
     shopUrl: null,
+    isLikelyRoaster: false,
+    siteMatchesRoaster: false,
   };
 
   if (!website) return emptyResult;
@@ -326,6 +384,14 @@ export async function scrapeRoasterProducts(website) {
     const $home = cheerio.load(homepageHtml);
     const homepageText = $home('body').text();
 
+    // Verify the site belongs to this roaster and that they actually roast
+    const pageTitle =
+      $home('title').text().trim() ||
+      $home('meta[property="og:site_name"]').attr('content') ||
+      '';
+    const isLikelyRoaster = checkIsActualRoaster(homepageText);
+    const siteMatchesRoaster = checkSiteMatchesRoaster(pageTitle, roasterName);
+
     // Check ownership indicators from homepage
     const { isWomenOwned: homeWomen, isBlackOwned: homeBlack } =
       checkOwnershipIndicators(homepageText);
@@ -360,6 +426,8 @@ export async function scrapeRoasterProducts(website) {
       isWomenOwned,
       isBlackOwned,
       shopUrl,
+      isLikelyRoaster,
+      siteMatchesRoaster,
     };
   } catch (error) {
     console.error(`Scraping failed for ${website}:`, error.message);

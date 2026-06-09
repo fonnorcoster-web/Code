@@ -76,7 +76,7 @@ router.post('/', async (req, res) => {
           return { ...roaster, scrapedData: { products: [], isWomenOwned: false, isBlackOwned: false, shopUrl: null } };
         }
         try {
-          const scrapedData = await scrapeRoasterProducts(roaster.website);
+          const scrapedData = await scrapeRoasterProducts(roaster.website, roaster.name);
           console.log(`Scraped ${roaster.name}: ${scrapedData.products.length} products found`);
           return { ...roaster, scrapedData };
         } catch (error) {

@@ -2,6 +2,39 @@ import axios from 'axios';
 
 const GOOGLE_API_BASE = 'https://maps.googleapis.com/maps/api';
 
+// Third-party review/directory sites — not the roaster's own website
+const THIRD_PARTY_DOMAINS = [
+  'yelp.com',
+  'tripadvisor.com',
+  'google.com',
+  'facebook.com',
+  'instagram.com',
+  'twitter.com',
+  'x.com',
+  'foursquare.com',
+  'zomato.com',
+  'opentable.com',
+  'grubhub.com',
+  'doordash.com',
+  'ubereats.com',
+  'seamless.com',
+  'yellowpages.com',
+  'superpages.com',
+  'bbb.org',
+  'manta.com',
+];
+
+function isThirdPartyWebsite(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return THIRD_PARTY_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith('.' + domain)
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Large chains to filter out
 const CHAIN_BLACKLIST = [
   'starbucks',
@@ -103,7 +136,7 @@ export async function findLocalRoasters(location, radius = 25000) {
 
   const roasters = detailsResults
     .filter(Boolean)
-    .filter((r) => r.website) // Only include roasters with websites (so we can scrape)
+    .filter((r) => r.website && !isThirdPartyWebsite(r.website)) // Own website only
     .map((details) => ({
       placeId: details.place_id,
       name: details.name,

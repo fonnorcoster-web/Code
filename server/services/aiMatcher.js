@@ -49,6 +49,8 @@ export async function matchProductsToPreferences(roasters, preferences) {
   // Build a batch request to Claude for all roasters
   const roasterDescriptions = roastersWithProducts
     .map((roaster, idx) => {
+      const { isLikelyRoaster = false, siteMatchesRoaster = true } = roaster.scrapedData || {};
+
       const products = roaster.scrapedData.products
         .slice(0, 10)
         .map(
@@ -64,6 +66,7 @@ export async function matchProductsToPreferences(roasters, preferences) {
 
       return `Roaster ${idx + 1}: ${roaster.name}
 Address: ${roaster.address}
+Verification signals — website contains roaster keywords: ${isLikelyRoaster ? 'YES' : 'NO'} | website title matches business name: ${siteMatchesRoaster ? 'YES' : 'NO'}
 Products:
 ${products}`;
     })
@@ -84,11 +87,18 @@ Here are the local coffee roasters and their products to evaluate:
 
 ${roasterDescriptions}
 
-For each roaster, analyze their products and identify the top 1-2 products that best match the user's preferences.
+For each roaster, do the following:
+
+STEP 1 — Verify it is an actual coffee roaster:
+Set "isActualRoaster" to false if the business appears to be a coffee shop or cafe that does NOT roast its own beans. Signs of a non-roaster: products are drinks (lattes, cappuccinos, smoothies) rather than bags of beans for purchase, all products are from recognizable national/international brands (e.g. Lavazza, Folgers, Stumptown listed on another business's site), or there is no indication of an in-house roasting operation. Use the verification signals provided and your judgment from the product list.
+
+STEP 2 — Select matching products (own products only):
+Only recommend products that this roaster makes and sells themselves. Skip any product that is clearly from a different brand. If no own products exist or the business is not a real roaster, return an empty topProducts array.
 
 Return a JSON array where each element has this exact structure:
 {
   "roasterIndex": <number starting from 1>,
+  "isActualRoaster": <boolean>,
   "topProducts": [
     {
       "productIndex": <number starting from 1, corresponding to the product numbers listed above>,
@@ -113,7 +123,7 @@ Return ONLY the JSON array, no other text.`;
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system:
-        'You are a coffee expert helping match people with local coffee products. Analyze each product\'s description and match it to the user\'s preferences. Always respond with valid JSON only.',
+        'You are a coffee expert helping match people with local coffee roasters and their products. Your job has two parts: (1) verify that each listed business is a genuine coffee roaster that roasts its own beans — not merely a cafe or coffee shop — and (2) match only that roaster\'s own products to the user\'s preferences. Always respond with valid JSON only.',
       messages: [
         {
           role: 'user',
@@ -139,6 +149,9 @@ Return ONLY the JSON array, no other text.`;
     for (let i = 0; i < roastersWithProducts.length; i++) {
       const roaster = roastersWithProducts[i];
       const matchResult = matchResults.find((r) => r.roasterIndex === i + 1);
+
+      // Skip if Claude determined this is not an actual roaster
+      if (matchResult && matchResult.isActualRoaster === false) continue;
 
       // Apply ownership filters
       if (womenOwned && !roaster.scrapedData?.isWomenOwned) continue;

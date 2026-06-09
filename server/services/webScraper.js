@@ -54,8 +54,24 @@ const ROASTER_INDICATOR_KEYWORDS = [
   'coffee roaster',
 ];
 
-// Class name fragments that identify user-review or testimonial containers (not products)
-const REVIEW_CONTAINER_FRAGMENTS = ['review', 'testimonial', 'comment', 'feedback', 'quote'];
+// Class name fragments that identify non-product containers (reviews, filter UI, sidebars)
+const REVIEW_CONTAINER_FRAGMENTS = [
+  'review', 'testimonial', 'comment', 'feedback', 'quote',
+  'filter', 'facet', 'sidebar', 'breadcrumb', 'pagination',
+];
+
+// Navigation words — names containing 3+ of these are page headers, not product names
+const NAV_WORDS = new Set([
+  'shop', 'cafe', 'menu', 'about', 'events', 'contact', 'home',
+  'gift', 'wholesale', 'careers', 'blog', 'login', 'cart', 'account',
+  'story', 'press', 'faq', 'find', 'locations', 'subscribe', 'rewards',
+]);
+
+// Phrases that indicate a page or element is showing an empty/filtered state
+const EMPTY_STATE_PATTERNS = [
+  'no results match', 'no products found', '0 results', 'nothing found',
+  'no items found', 'try removing', 'clear all filters',
+];
 
 // Keywords present on purchasable coffee products (bags, pouches) but not on menu items or reviews
 const PURCHASABLE_PRODUCT_KEYWORDS = [
@@ -155,7 +171,8 @@ async function findShopPage(baseUrl, $, client) {
       const shopText = response.data.toLowerCase();
       const hasCoffeeContent = COFFEE_KEYWORDS.some((kw) => shopText.includes(kw));
 
-      if (hasCoffeeContent) {
+      const hasEmptyState = EMPTY_STATE_PATTERNS.some((p) => shopText.includes(p));
+      if (hasCoffeeContent && !hasEmptyState) {
         return { url: link.url, html: response.data };
       }
     } catch {
@@ -214,14 +231,22 @@ function extractProducts($, baseUrl) {
 
       if (!hasCoffeeContent || text.length < 20) return;
 
+      // Hoist lowerText here so it's available for all checks below
+      const lowerText = text.toLowerCase();
+
+      // Skip elements that are in an empty/filtered state rather than showing real products
+      if (EMPTY_STATE_PATTERNS.some((p) => lowerText.includes(p))) return;
+
       // Extract product name
       const nameEl =
         $el.find('h1, h2, h3, h4, [class*="title"], [class*="name"]').first();
       const name = nameEl.length ? extractText($, nameEl) : null;
 
       if (!name || name.length < 3 || name.length > 200) return;
-      // Reject names that look like page titles or nav link lists ("Home | Shop | About")
+      // Reject names that look like page titles or nav link lists
       if (/ [|>] /.test(name)) return;
+      const nameTokens = name.toLowerCase().split(/[\s,]+/).filter(Boolean);
+      if (nameTokens.filter((w) => NAV_WORDS.has(w)).length >= 3) return;
       if (seen.has(name.toLowerCase())) return;
       seen.add(name.toLowerCase());
 
@@ -257,7 +282,6 @@ function extractProducts($, baseUrl) {
       }
 
       // Check for whole bean / ground options
-      const lowerText = text.toLowerCase();
       const wholeBean =
         lowerText.includes('whole bean') ||
         lowerText.includes('whole-bean') ||

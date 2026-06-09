@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+      sans-serif;
+  }
+
+  body {
+    @apply bg-amber-50 text-stone-800;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-amber-800 hover:bg-amber-900 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white hover:bg-amber-50 text-amber-800 font-semibold py-2.5 px-6 rounded-lg border border-amber-200 transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-warm border border-amber-100 overflow-hidden;
+  }
+
+  .badge-women-owned {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+  }
+
+  .badge-black-owned {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800;
+  }
+
+  .flavor-chip {
+    @apply cursor-pointer select-none px-4 py-2 rounded-full border-2 transition-all duration-200 text-sm font-medium;
+  }
+
+  .flavor-chip-unselected {
+    @apply border-amber-200 text-stone-600 hover:border-amber-400 hover:text-amber-800 bg-white;
+  }
+
+  .flavor-chip-selected {
+    @apply border-amber-700 bg-amber-700 text-white;
+  }
+}
+
+/* Custom coffee bean animation */
+@keyframes steam {
+  0% { transform: translateY(0) scaleX(1); opacity: 0.8; }
+  50% { transform: translateY(-10px) scaleX(1.2); opacity: 0.6; }
+  100% { transform: translateY(-20px) scaleX(0.8); opacity: 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-warm {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.95); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-steam {
+  animation: steam 2s ease-out infinite;
+}
+
+.animate-steam-delay-1 {
+  animation: steam 2s ease-out infinite 0.4s;
+}
+
+.animate-steam-delay-2 {
+  animation: steam 2s ease-out infinite 0.8s;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-pulse-warm {
+  animation: pulse-warm 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Progress bar */
+.progress-bar {
+  @apply h-1.5 rounded-full bg-amber-200 overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-amber-700 rounded-full transition-all duration-500 ease-out;
+}
+
+/* Star rating */
+.star-filled {
+  color: #d97706;
+}
+
+.star-empty {
+  color: #d1d5db;
+}
+
+/* Roast level cards */
+.roast-card {
+  @apply cursor-pointer rounded-xl p-4 border-2 transition-all duration-200 text-center;
+}
+
+.roast-card-unselected {
+  @apply border-amber-100 hover:border-amber-300 bg-white;
+}
+
+.roast-card-selected {
+  @apply border-amber-700 bg-amber-700 text-white;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  @apply relative inline-flex items-center cursor-pointer;
+}
+
+.toggle-switch input {
+  @apply sr-only;
+}
+
+.toggle-track {
+  @apply w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-amber-700 transition-colors duration-200;
+}
+
+.toggle-thumb {
+  @apply absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 peer-checked:translate-x-5;
+}

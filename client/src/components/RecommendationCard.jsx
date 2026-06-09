@@ -34,19 +34,6 @@ function StarRating({ rating }) {
   );
 }
 
-function MatchBeans({ score }) {
-  const filled = Math.round(score / 2); // 0-5 beans for score 0-10
-  return (
-    <span className="flex items-center gap-0.5" aria-label={`Match score: ${score} out of 10`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={`text-sm ${i <= filled ? 'text-amber-600' : 'text-stone-200'}`}>
-          ☕
-        </span>
-      ))}
-      <span className="text-xs text-stone-400 ml-1">{score}/10</span>
-    </span>
-  );
-}
 
 export default function RecommendationCard({ recommendation }) {
   const { roaster, topProducts } = recommendation;
@@ -134,13 +121,9 @@ function ProductItem({ product, roasterWebsite }) {
           )}
         </div>
 
-        <div className="mt-1">
-          <MatchBeans score={product.matchScore} />
-        </div>
-
-        {product.matchReason && (
-          <p className="text-stone-500 text-xs mt-1.5 italic leading-relaxed line-clamp-2">
-            {product.matchReason}
+        {(product.matchReason || product.description) && (
+          <p className="text-stone-600 text-xs mt-2 leading-relaxed">
+            {product.matchReason || product.description}
           </p>
         )}
 

@@ -54,6 +54,18 @@ const ROASTER_INDICATOR_KEYWORDS = [
   'coffee roaster',
 ];
 
+// Class name fragments that identify user-review or testimonial containers (not products)
+const REVIEW_CONTAINER_FRAGMENTS = ['review', 'testimonial', 'comment', 'feedback', 'quote'];
+
+// Keywords present on purchasable coffee products (bags, pouches) but not on menu items or reviews
+const PURCHASABLE_PRODUCT_KEYWORDS = [
+  'whole bean', 'whole-bean',
+  'ground coffee', 'pre-ground',
+  'oz bag', 'lb bag', 'g bag',
+  '12oz', '16oz', '250g', '340g', '500g', '1kg',
+  'subscribe', 'subscription',
+];
+
 // Brewing method keywords
 const BREWING_METHODS = {
   espresso: ['espresso', 'shot', 'latte', 'cappuccino', 'americano'],
@@ -181,6 +193,20 @@ function extractProducts($, baseUrl) {
       const $el = $(el);
       const text = extractText($, el);
 
+      // Skip elements inside page-structural areas (navigation, site header, footer)
+      if ($el.closest('header, nav, footer').length > 0) return;
+
+      // Skip review/testimonial containers — their text mentions coffee but they're not products
+      const elClass = ($el.attr('class') || '').toLowerCase();
+      if (REVIEW_CONTAINER_FRAGMENTS.some((frag) => elClass.includes(frag))) return;
+
+      // Require a purchasable-product signal so menu items and reviews don't qualify
+      const hasPriceEl = $el.find('[class*="price"], .price, [data-price]').length > 0;
+      const hasPurchasableKeyword = PURCHASABLE_PRODUCT_KEYWORDS.some((kw) =>
+        text.toLowerCase().includes(kw)
+      );
+      if (!hasPriceEl && !hasPurchasableKeyword) return;
+
       // Check if this element contains coffee content
       const hasCoffeeContent = COFFEE_KEYWORDS.some((kw) =>
         text.toLowerCase().includes(kw)
@@ -194,6 +220,8 @@ function extractProducts($, baseUrl) {
       const name = nameEl.length ? extractText($, nameEl) : null;
 
       if (!name || name.length < 3 || name.length > 200) return;
+      // Reject names that look like page titles or nav link lists ("Home | Shop | About")
+      if (/ [|>] /.test(name)) return;
       if (seen.has(name.toLowerCase())) return;
       seen.add(name.toLowerCase());
 
@@ -239,12 +267,16 @@ function extractProducts($, baseUrl) {
         lowerText.includes('pre-ground') ||
         lowerText.includes('pre ground');
 
-      // Find purchase URL
+      // Find purchase URL — prefer product-page links over add-to-cart or checkout links
       let purchaseUrl = null;
-      const linkEl = $el.find('a[href]').first();
-      if (linkEl.length) {
-        const href = linkEl.attr('href');
-        if (href) purchaseUrl = resolveUrl(baseUrl, href);
+      const allLinks = $el.find('a[href]').toArray();
+      for (const a of allLinks) {
+        const href = $(a).attr('href') || '';
+        const isCartLink = /\/(cart|checkout|bag)\b|add[-_]to[-_]cart|add-item/i.test(href);
+        if (!isCartLink) {
+          purchaseUrl = resolveUrl(baseUrl, href);
+          break;
+        }
       }
 
       // Extract brewing methods mentioned

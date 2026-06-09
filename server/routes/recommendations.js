@@ -47,9 +47,11 @@ router.post('/', async (req, res) => {
   try {
     // Step 1: Find local roasters via Google Places
     console.log('Step 1: Finding local roasters...');
+    const radiusMiles = typeof preferences.radius === 'number' ? preferences.radius : 10;
+    const radiusMeters = Math.round(radiusMiles * 1609.34);
     let roasters;
     try {
-      roasters = await findLocalRoasters(location);
+      roasters = await findLocalRoasters(location, radiusMeters);
       console.log(`Found ${roasters.length} local roasters`);
     } catch (error) {
       console.error('Google Places error:', error.message);
@@ -93,30 +95,7 @@ router.post('/', async (req, res) => {
       .filter((result) => result.status === 'fulfilled')
       .map((result) => result.value);
 
-    // Apply ownership filters early if possible
-    let filteredRoasters = roastersWithData;
-    if (preferences.womenOwned) {
-      filteredRoasters = filteredRoasters.filter((r) => r.scrapedData?.isWomenOwned);
-    }
-    if (preferences.blackOwned) {
-      filteredRoasters = filteredRoasters.filter((r) => r.scrapedData?.isBlackOwned);
-    }
-
-    if (filteredRoasters.length === 0 && (preferences.womenOwned || preferences.blackOwned)) {
-      // Try without filters to see if any roasters exist
-      const message = preferences.womenOwned && preferences.blackOwned
-        ? 'No women-owned or Black-owned coffee roasters were found in your area with the current filters.'
-        : preferences.womenOwned
-        ? 'No women-owned coffee roasters were found in your area. Try removing that filter.'
-        : 'No Black-owned coffee roasters were found in your area. Try removing that filter.';
-
-      return res.json({
-        recommendations: [],
-        message,
-      });
-    }
-
-    // Use roasters with data (not filtered) for AI matching - let AI matcher handle filtering
+    // Ownership preferences are soft — all roasters proceed, preferred ones surface first
     console.log(`Step 3: AI matching for ${roastersWithData.length} roasters...`);
 
     let recommendations;
@@ -137,6 +116,7 @@ router.post('/', async (req, res) => {
             name: r.name,
             address: r.address,
             website: r.website,
+            shopUrl: r.scrapedData?.shopUrl || null,
             logoUrl: r.logoUrl,
             rating: r.rating,
             isWomenOwned: r.scrapedData?.isWomenOwned || false,
@@ -145,7 +125,7 @@ router.post('/', async (req, res) => {
           topProducts: r.scrapedData?.products?.slice(0, 2).map((p) => ({
             ...p,
             matchScore: 5,
-            matchReason: 'AI matching is temporarily unavailable. This product may match your preferences.',
+            matchReason: p.description || 'Visit the roaster\'s website for full product details.',
           })) || [],
           matchScore: 5,
         }));

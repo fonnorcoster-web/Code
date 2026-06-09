@@ -36,6 +36,7 @@ export async function matchProductsToPreferences(roasters, preferences) {
           name: r.name,
           address: r.address,
           website: r.website,
+          shopUrl: r.scrapedData?.shopUrl || null,
           logoUrl: r.logoUrl,
           rating: r.rating,
           isWomenOwned: r.scrapedData?.isWomenOwned || false,
@@ -78,8 +79,8 @@ User Preferences:
 - Flavor Notes: ${flavorNotes.length > 0 ? flavorNotes.join(', ') : 'No specific preference'}
 - Format: ${format === 'whole' ? 'Whole Bean only' : format === 'ground' ? 'Pre-Ground only' : 'Either whole bean or ground'}
 - Brewing Method: ${brewingMethod || 'Any'}
-- Looking for Women-Owned: ${womenOwned ? 'Yes' : 'No preference'}
-- Looking for Black-Owned: ${blackOwned ? 'Yes' : 'No preference'}`;
+- Prefers Women-Owned: ${womenOwned ? 'Yes — surface these roasters first when quality is comparable' : 'No preference'}
+- Prefers Black-Owned: ${blackOwned ? 'Yes — surface these roasters first when quality is comparable' : 'No preference'}`;
 
   const prompt = `${preferencesDescription}
 
@@ -103,7 +104,7 @@ Return a JSON array where each element has this exact structure:
     {
       "productIndex": <number starting from 1, corresponding to the product numbers listed above>,
       "matchScore": <integer 0-10>,
-      "matchReason": "<2-3 sentence explanation of why this product matches the preferences>"
+      "matchReason": "<2-3 sentences describing this coffee's specific character — its origin, processing method, tasting notes, or roast profile — and how those qualities connect to the user's stated preferences. Write about the coffee itself; avoid generic phrases like 'this product may match your preferences'.>"
     }
   ]
 }
@@ -152,10 +153,6 @@ Return ONLY the JSON array, no other text.`;
 
       // Skip if Claude determined this is not an actual roaster
       if (matchResult && matchResult.isActualRoaster === false) continue;
-
-      // Apply ownership filters
-      if (womenOwned && !roaster.scrapedData?.isWomenOwned) continue;
-      if (blackOwned && !roaster.scrapedData?.isBlackOwned) continue;
 
       if (!matchResult || matchResult.topProducts.length === 0) {
         continue;
@@ -211,6 +208,7 @@ Return ONLY the JSON array, no other text.`;
           name: roaster.name,
           address: roaster.address,
           website: roaster.website,
+          shopUrl: roaster.scrapedData?.shopUrl || null,
           logoUrl: roaster.logoUrl,
           rating: roaster.rating,
           isWomenOwned: roaster.scrapedData?.isWomenOwned || false,
@@ -221,25 +219,31 @@ Return ONLY the JSON array, no other text.`;
       });
     }
 
-    // Sort by match score descending
-    results.sort((a, b) => b.matchScore - a.matchScore);
+    // Sort: preferred-ownership roasters first, then by match score within each tier
+    results.sort((a, b) => {
+      const aPreferred = (womenOwned && a.roaster.isWomenOwned) || (blackOwned && a.roaster.isBlackOwned);
+      const bPreferred = (womenOwned && b.roaster.isWomenOwned) || (blackOwned && b.roaster.isBlackOwned);
+      if (aPreferred !== bPreferred) return aPreferred ? -1 : 1;
+      return b.matchScore - a.matchScore;
+    });
 
     return results;
   } catch (error) {
     console.error('AI matching error:', error.message);
 
-    // Fallback: return all roasters with products but no specific match info
+    // Fallback: return all roasters with products, ownership-preferred ones first
     return roastersWithProducts
-      .filter((r) => {
-        if (womenOwned && !r.scrapedData?.isWomenOwned) return false;
-        if (blackOwned && !r.scrapedData?.isBlackOwned) return false;
-        return true;
+      .sort((a, b) => {
+        const aPreferred = (womenOwned && a.scrapedData?.isWomenOwned) || (blackOwned && a.scrapedData?.isBlackOwned);
+        const bPreferred = (womenOwned && b.scrapedData?.isWomenOwned) || (blackOwned && b.scrapedData?.isBlackOwned);
+        return aPreferred === bPreferred ? 0 : aPreferred ? -1 : 1;
       })
       .map((r) => ({
         roaster: {
           name: r.name,
           address: r.address,
           website: r.website,
+          shopUrl: r.scrapedData?.shopUrl || null,
           logoUrl: r.logoUrl,
           rating: r.rating,
           isWomenOwned: r.scrapedData?.isWomenOwned || false,
@@ -248,7 +252,7 @@ Return ONLY the JSON array, no other text.`;
         topProducts: r.scrapedData.products.slice(0, 2).map((p) => ({
           ...p,
           matchScore: 5,
-          matchReason: 'This product may match your preferences. Visit the roaster website for more details.',
+          matchReason: p.description || 'Visit the roaster\'s website for full product details.',
         })),
         matchScore: 5,
       }));

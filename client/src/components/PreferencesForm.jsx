@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 const ROAST_LEVELS = [
   {
@@ -62,7 +62,125 @@ const BREWING_METHODS = [
   { id: 'moka-pot', label: 'Moka Pot', emoji: '🫙' },
 ];
 
+const SVG_SIZE = 260;
+const SVG_CENTER = SVG_SIZE / 2;
+
+const SNAP_RINGS = [
+  { value: 1,  r: 30,  label: '1 mi' },
+  { value: 5,  r: 60,  label: '5 mi' },
+  { value: 10, r: 90,  label: '10 mi' },
+  { value: 20, r: 120, label: '20 mi' },
+];
+
 const TOTAL_STEPS = 5;
+
+function RadiusPicker({ value, onChange }) {
+  const svgRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [handleAngle, setHandleAngle] = useState(0);
+
+  const activeRing = SNAP_RINGS.find((r) => r.value === value) || SNAP_RINGS[1];
+
+  const interact = (clientX, clientY) => {
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = clientX - rect.left - SVG_CENTER;
+    const dy = clientY - rect.top - SVG_CENTER;
+    setHandleAngle(Math.atan2(dy, dx));
+
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    let closest = SNAP_RINGS[0];
+    let minDiff = Infinity;
+    for (const ring of SNAP_RINGS) {
+      const diff = Math.abs(dist - ring.r);
+      if (diff < minDiff) { minDiff = diff; closest = ring; }
+    }
+    onChange(closest.value);
+  };
+
+  const hx = SVG_CENTER + activeRing.r * Math.cos(handleAngle);
+  const hy = SVG_CENTER + activeRing.r * Math.sin(handleAngle);
+  const LABEL_ANGLE = -Math.PI / 4;
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg
+        ref={svgRef}
+        width={SVG_SIZE}
+        height={SVG_SIZE}
+        viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
+        className="touch-none select-none"
+        style={{ cursor: dragging ? 'grabbing' : 'grab' }}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          svgRef.current.setPointerCapture(e.pointerId);
+          setDragging(true);
+          interact(e.clientX, e.clientY);
+        }}
+        onPointerMove={(e) => { if (dragging) interact(e.clientX, e.clientY); }}
+        onPointerUp={() => setDragging(false)}
+      >
+        {/* Background disc */}
+        <circle cx={SVG_CENTER} cy={SVG_CENTER} r={SVG_CENTER - 4} fill="#fef9c3" stroke="#fde68a" strokeWidth="1.5" />
+
+        {/* Crosshair */}
+        <line x1="4" y1={SVG_CENTER} x2={SVG_SIZE - 4} y2={SVG_CENTER} stroke="#fde68a" strokeWidth="0.5" />
+        <line x1={SVG_CENTER} y1="4" x2={SVG_CENTER} y2={SVG_SIZE - 4} stroke="#fde68a" strokeWidth="0.5" />
+
+        {/* Active area fill */}
+        <circle cx={SVG_CENTER} cy={SVG_CENTER} r={activeRing.r} fill="#92400e" fillOpacity={0.1} />
+
+        {/* Guide rings */}
+        {SNAP_RINGS.map((ring) => {
+          const isActive = ring.value === value;
+          return (
+            <circle
+              key={ring.value}
+              cx={SVG_CENTER} cy={SVG_CENTER} r={ring.r}
+              fill="none"
+              stroke={isActive ? '#92400e' : '#d97706'}
+              strokeWidth={isActive ? 2 : 1}
+              strokeDasharray={isActive ? undefined : '4 3'}
+              opacity={isActive ? 1 : 0.4}
+              style={{ transition: 'stroke 0.1s ease, opacity 0.1s ease' }}
+            />
+          );
+        })}
+
+        {/* Ring labels along the 45° diagonal */}
+        {SNAP_RINGS.map((ring) => {
+          const isActive = ring.value === value;
+          return (
+            <text
+              key={ring.value}
+              x={SVG_CENTER + (ring.r + 9) * Math.cos(LABEL_ANGLE)}
+              y={SVG_CENTER + (ring.r + 9) * Math.sin(LABEL_ANGLE)}
+              textAnchor="middle"
+              fontSize="9"
+              fontFamily="system-ui, sans-serif"
+              fontWeight={isActive ? '700' : '400'}
+              fill={isActive ? '#92400e' : '#a8a29e'}
+              style={{ transition: 'fill 0.1s ease' }}
+            >
+              {ring.value}mi
+            </text>
+          );
+        })}
+
+        {/* Center pin */}
+        <circle cx={SVG_CENTER} cy={SVG_CENTER} r={10} fill="#92400e" />
+        <circle cx={SVG_CENTER} cy={SVG_CENTER} r={4} fill="white" />
+
+        {/* Drag handle */}
+        <circle cx={hx} cy={hy} r={9} fill="#92400e" stroke="white" strokeWidth={2.5} />
+        <circle cx={hx} cy={hy} r={3} fill="white" />
+      </svg>
+
+      <p className="text-sm text-stone-500">
+        Search within <span className="font-bold text-amber-800">{value} miles</span>
+      </p>
+    </div>
+  );
+}
 
 function StepIndicator({ currentStep }) {
   return (
@@ -156,6 +274,7 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
       womenOwned: false,
       blackOwned: false,
       excludeRegionalChains: true,
+      radius: 10,
     }
   );
 
@@ -294,6 +413,16 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
               {locationError && (
                 <p className="text-red-500 text-sm">{locationError}</p>
               )}
+            </div>
+
+            <div className="mt-6 flex flex-col items-center">
+              <label className="block text-sm font-medium text-stone-700 mb-3 self-start">
+                Search Radius
+              </label>
+              <RadiusPicker
+                value={preferences.radius}
+                onChange={(r) => setPreferences((prev) => ({ ...prev, radius: r }))}
+              />
             </div>
           </div>
         )}
@@ -452,7 +581,7 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
             <div className="space-y-5">
               <Checkbox
                 label="Women-Owned Businesses"
-                description="Only show roasters that identify as women-owned"
+                description="Prioritize roasters that identify as women-owned — others still appear"
                 checked={preferences.womenOwned}
                 onChange={(e) =>
                   setPreferences((prev) => ({ ...prev, womenOwned: e.target.checked }))
@@ -461,7 +590,7 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
 
               <Checkbox
                 label="Black-Owned Businesses"
-                description="Only show roasters that identify as Black-owned or BIPOC-owned"
+                description="Prioritize roasters that identify as Black-owned or BIPOC-owned — others still appear"
                 checked={preferences.blackOwned}
                 onChange={(e) =>
                   setPreferences((prev) => ({ ...prev, blackOwned: e.target.checked }))

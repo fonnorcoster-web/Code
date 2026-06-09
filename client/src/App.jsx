@@ -13,7 +13,7 @@ const DEFAULT_PREFERENCES = {
   womenOwned: false,
   blackOwned: false,
   excludeRegionalChains: true,
-  excludeNationalChains: true,
+  radius: 5,
 };
 
 export default function App() {

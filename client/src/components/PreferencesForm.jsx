@@ -93,6 +93,32 @@ function StepIndicator({ currentStep }) {
   );
 }
 
+function Checkbox({ label, description, checked, onChange }) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input
+        type="checkbox"
+        className="sr-only peer"
+        checked={checked}
+        onChange={onChange}
+      />
+      <div className="w-5 h-5 mt-0.5 flex-shrink-0 rounded border-2 border-amber-300 bg-white peer-checked:bg-amber-700 peer-checked:border-amber-700 transition-colors duration-200 flex items-center justify-center">
+        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </div>
+      <div>
+        <div className="font-medium text-stone-700">{label}</div>
+        {description && <div className="text-xs text-stone-500 mt-0.5">{description}</div>}
+      </div>
+    </label>
+  );
+}
+
 function ToggleSwitch({ label, description, checked, onChange, disabled = false }) {
   return (
     <label className={`flex items-start gap-3 cursor-pointer ${disabled ? 'opacity-60' : ''}`}>
@@ -130,7 +156,6 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
       womenOwned: false,
       blackOwned: false,
       excludeRegionalChains: true,
-      excludeNationalChains: true,
     }
   );
 
@@ -425,7 +450,7 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
             </p>
 
             <div className="space-y-5">
-              <ToggleSwitch
+              <Checkbox
                 label="Women-Owned Businesses"
                 description="Only show roasters that identify as women-owned"
                 checked={preferences.womenOwned}
@@ -434,7 +459,7 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
                 }
               />
 
-              <ToggleSwitch
+              <Checkbox
                 label="Black-Owned Businesses"
                 description="Only show roasters that identify as Black-owned or BIPOC-owned"
                 checked={preferences.blackOwned}
@@ -456,19 +481,11 @@ export default function PreferencesForm({ initialPreferences, initialLocation, o
                   }
                 />
               </div>
-
-              <ToggleSwitch
-                label="Exclude National Chains"
-                description="Always on for best local results — Starbucks, Peet's, etc. are filtered out"
-                checked={true}
-                onChange={() => {}}
-                disabled={true}
-              />
             </div>
 
             <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
               <p className="text-xs text-amber-800">
-                ☕ <strong>We always prioritize small, independent local roasters.</strong> National chains are excluded by default so you can discover amazing local gems in your community.
+                ☕ <strong>We always prioritize small, independent local roasters.</strong> National chains like Starbucks and Peet's are always excluded so you can discover local gems in your community.
               </p>
             </div>
           </div>

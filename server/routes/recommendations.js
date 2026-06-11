@@ -68,9 +68,9 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Step 2: Scrape roaster websites in parallel (limit to 8 roasters)
+    // Step 2: Scrape roaster websites in parallel (limit to 15 roasters)
     console.log('Step 2: Scraping roaster websites...');
-    const roastersToScrape = roasters.slice(0, 8);
+    const roastersToScrape = roasters.slice(0, 15);
 
     const scrapeResults = await Promise.allSettled(
       roastersToScrape.map(async (roaster) => {

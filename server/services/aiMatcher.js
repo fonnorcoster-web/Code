@@ -146,15 +146,34 @@ Return ONLY the JSON array, no other text.`;
 
     // Build the final results
     const results = [];
+    const aiExcludedNames = new Set(); // names Claude flagged as not actual roasters
 
     for (let i = 0; i < roastersWithProducts.length; i++) {
       const roaster = roastersWithProducts[i];
       const matchResult = matchResults.find((r) => r.roasterIndex === i + 1);
 
       // Skip if Claude determined this is not an actual roaster
-      if (matchResult && matchResult.isActualRoaster === false) continue;
+      if (matchResult && matchResult.isActualRoaster === false) {
+        aiExcludedNames.add(roaster.name);
+        continue;
+      }
 
       if (!matchResult || matchResult.topProducts.length === 0) {
+        // Has products but none matched — still surface the roaster
+        results.push({
+          roaster: {
+            name: roaster.name,
+            address: roaster.address,
+            website: roaster.website,
+            shopUrl: roaster.scrapedData?.shopUrl || null,
+            logoUrl: roaster.logoUrl,
+            rating: roaster.rating,
+            isWomenOwned: roaster.scrapedData?.isWomenOwned || false,
+            isBlackOwned: roaster.scrapedData?.isBlackOwned || false,
+          },
+          topProducts: [],
+          matchScore: 0,
+        });
         continue;
       }
 
@@ -216,6 +235,27 @@ Return ONLY the JSON array, no other text.`;
         },
         topProducts,
         matchScore: maxScore,
+      });
+    }
+
+    // Append roasters whose sites couldn't be scraped (JS-rendered, bot-blocked, etc.)
+    // They're still real local roasters worth knowing about — show them as "visit website" cards.
+    const includedNames = new Set(results.map((r) => r.roaster.name));
+    for (const r of roasters) {
+      if (includedNames.has(r.name) || aiExcludedNames.has(r.name)) continue;
+      results.push({
+        roaster: {
+          name: r.name,
+          address: r.address,
+          website: r.website,
+          shopUrl: r.scrapedData?.shopUrl || null,
+          logoUrl: r.logoUrl,
+          rating: r.rating,
+          isWomenOwned: r.scrapedData?.isWomenOwned || false,
+          isBlackOwned: r.scrapedData?.isBlackOwned || false,
+        },
+        topProducts: [],
+        matchScore: 0,
       });
     }
 

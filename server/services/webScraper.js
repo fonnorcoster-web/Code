@@ -210,8 +210,10 @@ function extractProducts($, baseUrl) {
       const $el = $(el);
       const text = extractText($, el);
 
-      // Skip elements inside page-structural areas (navigation, site header, footer)
-      if ($el.closest('header, nav, footer').length > 0) return;
+      // Skip elements inside page-structural or filter/sidebar areas
+      if ($el.closest(
+        'header, nav, footer, [class*="filter"], [class*="refinement"], [class*="facet"], [class*="sidebar"], [id*="filter"], [id*="sidebar"]'
+      ).length > 0) return;
 
       // Skip review/testimonial containers — their text mentions coffee but they're not products
       const elClass = ($el.attr('class') || '').toLowerCase();
@@ -247,6 +249,12 @@ function extractProducts($, baseUrl) {
       if (/ [|>] /.test(name)) return;
       const nameTokens = name.toLowerCase().split(/[\s,]+/).filter(Boolean);
       if (nameTokens.filter((w) => NAV_WORDS.has(w)).length >= 3) return;
+      // Reject single generic category words that are filter/UI labels, not product names
+      const GENERIC_CATEGORY_WORDS = new Set([
+        'roast', 'filter', 'sort', 'blend', 'origin', 'grind',
+        'type', 'size', 'format', 'price', 'category', 'results',
+      ]);
+      if (nameTokens.length === 1 && GENERIC_CATEGORY_WORDS.has(nameTokens[0])) return;
       if (seen.has(name.toLowerCase())) return;
       seen.add(name.toLowerCase());
 
@@ -255,6 +263,8 @@ function extractProducts($, baseUrl) {
         .find('p, [class*="desc"], [class*="notes"], [class*="flavor"]')
         .first();
       const description = descEl.length ? extractText($, descEl) : '';
+      // Reject elements whose description is a bare UI-control word — they are filter/sort controls
+      if (/^(filters?|sort|apply|clear|reset|refine|close|search|showing|results?)$/i.test(description.trim())) return;
 
       // Extract price
       let price = null;
@@ -406,13 +416,10 @@ export async function scrapeRoasterProducts(website, roasterName = '') {
 
   if (!website) return emptyResult;
 
-  // Normalize URL
-  let baseUrl;
+  // Normalize and validate URL
   try {
-    baseUrl = new URL(website).origin;
-    if (!website.startsWith('http')) {
-      website = 'https://' + website;
-    }
+    if (!website.startsWith('http')) website = 'https://' + website;
+    new URL(website);
   } catch {
     return emptyResult;
   }

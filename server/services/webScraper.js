@@ -210,9 +210,11 @@ function extractProducts($, baseUrl) {
       const $el = $(el);
       const text = extractText($, el);
 
-      // Skip elements inside page-structural or filter/sidebar areas
+      // Skip elements inside page-structural or filter-panel areas
+      // Note: sidebar is intentionally NOT checked here — many themes wrap product grids in a
+      // "sidebar"-named container. Filter panels are identified specifically by filter/refinement/facet.
       if ($el.closest(
-        'header, nav, footer, [class*="filter"], [class*="refinement"], [class*="facet"], [class*="sidebar"], [id*="filter"], [id*="sidebar"]'
+        'header, nav, footer, [class*="filter"], [class*="refinement"], [class*="facet"], [id*="filter"]'
       ).length > 0) return;
 
       // Skip review/testimonial containers — their text mentions coffee but they're not products
@@ -220,11 +222,15 @@ function extractProducts($, baseUrl) {
       if (REVIEW_CONTAINER_FRAGMENTS.some((frag) => elClass.includes(frag))) return;
 
       // Require a purchasable-product signal so menu items and reviews don't qualify
-      const hasPriceEl = $el.find('[class*="price"], .price, [data-price]').length > 0;
+      const hasPriceEl = $el.find(
+        '[class*="price"], [class*="money"], [class*="amount"], .price, [data-price]'
+      ).length > 0;
+      const hasPriceLiteral = /\$\d/.test(text);
+      const hasCartButton = /add.{0,4}(to.{0,4})?(cart|bag|basket)/i.test(text);
       const hasPurchasableKeyword = PURCHASABLE_PRODUCT_KEYWORDS.some((kw) =>
         text.toLowerCase().includes(kw)
       );
-      if (!hasPriceEl && !hasPurchasableKeyword) return;
+      if (!hasPriceEl && !hasPriceLiteral && !hasCartButton && !hasPurchasableKeyword) return;
 
       // Check if this element contains coffee content
       const hasCoffeeContent = COFFEE_KEYWORDS.some((kw) =>

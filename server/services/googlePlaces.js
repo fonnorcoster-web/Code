@@ -136,7 +136,7 @@ export async function findLocalRoasters(location, radius = 25000) {
 
   const roasters = detailsResults
     .filter(Boolean)
-    .filter((r) => r.website && !isThirdPartyWebsite(r.website)) // Own website only
+    .filter((r) => !isThirdPartyWebsite(r.website)) // Exclude third-party review pages; no website is fine
     .map((details) => ({
       placeId: details.place_id,
       name: details.name,

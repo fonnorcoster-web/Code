@@ -248,13 +248,15 @@ function extractProducts($, baseUrl) {
       // Reject names that look like page titles or nav link lists
       if (/ [|>] /.test(name)) return;
       const nameTokens = name.toLowerCase().split(/[\s,]+/).filter(Boolean);
-      if (nameTokens.filter((w) => NAV_WORDS.has(w)).length >= 3) return;
-      // Reject single generic category words that are filter/UI labels, not product names
+      // Reject single generic category/nav words — these are UI labels, not product names
       const GENERIC_CATEGORY_WORDS = new Set([
         'roast', 'filter', 'sort', 'blend', 'origin', 'grind',
         'type', 'size', 'format', 'price', 'category', 'results',
       ]);
-      if (nameTokens.length === 1 && GENERIC_CATEGORY_WORDS.has(nameTokens[0])) return;
+      if (nameTokens.length === 1 && (GENERIC_CATEGORY_WORDS.has(nameTokens[0]) || NAV_WORDS.has(nameTokens[0]))) return;
+      // Also reject short names where every token is a nav/category word
+      const navCount = nameTokens.filter((w) => NAV_WORDS.has(w) || GENERIC_CATEGORY_WORDS.has(w)).length;
+      if (navCount >= 3 || (nameTokens.length <= 2 && navCount === nameTokens.length)) return;
       if (seen.has(name.toLowerCase())) return;
       seen.add(name.toLowerCase());
 
